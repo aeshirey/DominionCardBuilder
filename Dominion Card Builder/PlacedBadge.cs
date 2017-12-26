@@ -4,14 +4,28 @@ using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+//using System.Web.Script.Serialization;
+using System.Runtime.Serialization;
 
 namespace Dominion_Card_Builder
 {
-    class PlacedBadge
+    [DataContract]
+    public class PlacedBadge
     {
-        public int X;
-        public int Y;
-        public string Text;
-        public Image Image;
+        [DataMember]
+        public int X { get; set; }
+
+        [DataMember]
+        public int Y { get; set; }
+
+
+        [DataMember]
+        public string Text { get; set; }
+
+        [IgnoreDataMember]
+        public Image Image { get; set; }
+
+        [DataMember]
+        public string ImagePath { get; set; }
     }
 }

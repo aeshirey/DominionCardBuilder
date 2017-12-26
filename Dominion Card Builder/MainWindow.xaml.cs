@@ -3,6 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Drawing.Text;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -24,80 +26,80 @@ namespace Dominion_Card_Builder
     /// </summary>
     public partial class MainWindow : Window
     {
-        private const int BadgeWidth = 80;
+        private const int BadgeWidth = 60;
         private const int BadgeHeight = BadgeWidth;
         private const int CardWidth = 825;
         private const int CardHeight = 1125;
 
-        [DllImport("gdi32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        internal static extern bool DeleteObject(IntPtr value);
-
         private readonly IList<PlacedBadge> PlacedBadges = new List<PlacedBadge>();
+        //private readonly Font OptimusPrinceps = Utility.FontFamilies[0];
+        
+        //private readonly PrivateFontCollection PrivateFonts = new PrivateFontCollection();
 
-        private static BitmapSource GetImageStream(System.Drawing.Image myImage)
-        {
-            var bitmap = new Bitmap(myImage);
-            IntPtr bmpPt = bitmap.GetHbitmap();
-            BitmapSource bitmapSource =
-             System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
-                   bmpPt,
-                   IntPtr.Zero,
-                   Int32Rect.Empty,
-                   BitmapSizeOptions.FromEmptyOptions());
-
-            //freeze bitmapSource and clear memory to avoid memory leaks
-            bitmapSource.Freeze();
-            DeleteObject(bmpPt);
-
-            return bitmapSource;
-        }
-
-        private readonly System.Drawing.Image CoinIcon;
-        private readonly System.Drawing.Image CoinBadge;
-        private readonly System.Drawing.Image VPIcon;
-        private readonly System.Drawing.Image VPBadge;
+        private readonly Tuple<string, System.Drawing.Image>[] Badges;
 
         public MainWindow()
         {
             InitializeComponent();
 
-            this.CoinIcon = System.Drawing.Image.FromFile(@"C:\Users\adams\Desktop\coinIcon.png");
-            this.CoinBadge = System.Drawing.Image.FromFile(@"C:\Users\adams\Desktop\coinBadge.png");
-            this.VPIcon = System.Drawing.Image.FromFile(@"C:\Users\adams\Desktop\vpIcon.png");
-            this.VPBadge = System.Drawing.Image.FromFile(@"C:\Users\adams\Desktop\vpBadge.png");
+            // Load card templates
+            Utility.LoadFiles("Templates", "*.png")
+                .ForEach(file =>
+                {
+                    comboTemplate.Items.Add(new ComboBoxItem
+                    {
+                        Content = file.Name.Substring(0, file.Extension.Length - 1),
+                        Tag = file.FullName
+                    });
+                });
 
+            // Load all badges
+            this.Badges = Utility.LoadFiles("Resources", "*Badge.png")
+                .Select(fi => Tuple.Create(
+                    fi.Name.Replace("Badge.png", string.Empty),
+                    System.Drawing.Image.FromFile(fi.FullName)
+                    ))
+                .ToArray();
+            
             // temporarily make testing easier:
             tbDescription.Text = @"Roll a die.
 
 If it turns up 5 or 6, +1 coin.";
             tbImageLocation.Text = @"C:\Users\adams\Desktop\goons.png";
-            comboCardType_SelectionChanged(null, null);
-            //
+            comboTemplate.SelectedIndex = 0;
+            RenderCard();
+
+
+            //PrivateFonts.AddFontFile(@"Resources\OptimusPrincepsSemiBold.ttf");
+            //PrivateFonts.AddFontFile(@"Resources\OptimusPrinceps.ttf");
+
+            //var ifc = new InstalledFontCollection();
+
+            //var fams = ifc.Families
+            //    .OrderBy(f => f.Name)
+            //    .Select(f => f.Name)
+            //    .ToList();
         }
 
         private void comboCardType_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            var actionCard = @"C:\Users\adams\Desktop\action.png";
-
-            imageCardPreview.Source = RenderCard(
-                templateLocation: actionCard,
-                title: tbCardTitle.Text,
-                description: tbDescription.Text,
-                cost: tbCost.Text,
-                cardType: tbCardType.Text);
+            RenderCard();
         }
 
-        //private void DrawStringCenteredAround(Graphics graph, string text, Font font, int centeredX, int centeredY)
-        //{
-        //    var location =  new new System.Drawing.Point(
-        //                (int)(width - cardTypeSize.Width) / 2,
-        //                (int)(cardTypeYLocation - cardTypeSize.Height / 2));
-        //    graph.DrawString(text, font, System.Drawing.Brushes.Black, location);
-        //}
-
-        private BitmapSource RenderCard(string templateLocation, string title, string description, string cost, string cardType)
+        private void RenderCard()
         {
+            var dest = RenderCardImage();
+            imageCardPreview.Source = Utility.GetImageStream(dest);
+        }
+
+        private System.Drawing.Image RenderCardImage()
+        {
+            var templateLocation = (string)(comboTemplate.SelectedItem as ComboBoxItem).Tag;
+            var title = tbCardTitle.Text;
+            var description = tbDescription.Text;
+            var cost = tbCost.Text;
+            var cardType = tbCardType.Text;
+
             var centeredText = new StringFormat
             {
                 Alignment = StringAlignment.Center,
@@ -105,104 +107,220 @@ If it turns up 5 or 6, +1 coin.";
             };
 
 
-            using (System.Drawing.Image dest = new Bitmap(CardWidth, CardHeight))
+            System.Drawing.Image dest = new Bitmap(CardWidth, CardHeight);
+            Graphics graph = Graphics.FromImage(dest);
+            graph.InterpolationMode = InterpolationMode.HighQualityBicubic;
+
+            // IMAGE
             {
-                Graphics graph = Graphics.FromImage(dest);
-                graph.InterpolationMode = InterpolationMode.HighQualityBicubic;
-
-                // IMAGE
-                {
-                    var image = System.Drawing.Image.FromFile(tbImageLocation.Text);
-                    var destRect = new RectangleF(93, 163, 642, 415);
-                    var srcRect = new RectangleF(0, 0, image.Width, image.Height);
-                    graph.DrawImage(image, destRect, srcRect, GraphicsUnit.Pixel);
-                }
-
-                // TEMPLATE
-                {
-                    var template = System.Drawing.Image.FromFile(templateLocation);
-                    graph.DrawImage(template, 0, 0, CardWidth, CardHeight);
-                }
-
-                // TITLE
-                {
-                    const int titleYLocation = 120;
-                    var titleFont = new Font("Sitka Text", 24, System.Drawing.FontStyle.Bold);
-                    var titleSize = graph.MeasureString(title, titleFont);
-                    var titleLocation = new System.Drawing.Point(
-                        (int)(CardWidth - titleSize.Width) / 2,
-                        (int)(titleYLocation - titleSize.Height / 2));
-                    graph.DrawString(title, titleFont, System.Drawing.Brushes.Black, titleLocation);
-                }
-
-                // CARD TYPE
-                {
-                    const int cardTypeYLocation = 988;
-                    const int cardTypeAvailableWidth = 540;
-                    const int cardTypeXOffset = 190;
-                    var cardTypeFont = new Font("Sitka Text", 18, System.Drawing.FontStyle.Bold);
-                    var cardTypeSize = graph.MeasureString(cardType, cardTypeFont, cardTypeAvailableWidth);
-                    var cardTypeLocation = new System.Drawing.Point(
-                        (int)(cardTypeAvailableWidth - cardTypeSize.Width) / 2 + cardTypeXOffset,
-                        (int)(cardTypeYLocation - cardTypeSize.Height / 2));
-                    graph.DrawString(cardType, cardTypeFont, System.Drawing.Brushes.Black, cardTypeLocation);
-                }
-
-                // DESCRIPTION
-                {
-                    const int descriptionYLocation = 775;
-                    const int descriptionAvailableWidth = 630;
-                    const int descriptionAvailableHeight = 345;
-                    var descriptionFont = new Font("Arial", 16);
-                    var descriptionSize = graph.MeasureString(description, descriptionFont, descriptionAvailableWidth, centeredText);
-
-                    var descriptionRect = new RectangleF(
-                        (CardWidth - descriptionAvailableWidth) / 2,
-                        descriptionYLocation - (descriptionAvailableHeight / 2),
-                        descriptionAvailableWidth,
-                        descriptionAvailableHeight
-                        );
-
-                    graph.DrawString(
-                        description,
-                        descriptionFont,
-                        System.Drawing.Brushes.Black,
-                        descriptionRect,
-                        centeredText
-                        );
-                }
-
-                // COST
-                {
-                    var costLocation = new System.Drawing.Point(140, 1000);
-                    var costFont = new Font("Sitka Text", 24, System.Drawing.FontStyle.Bold);
-                    var costSize = graph.MeasureString(cost, costFont);
-                    var cl = new System.Drawing.Point(costLocation.X - (int)costSize.Width / 2, costLocation.Y - (int)costSize.Height / 2);
-                    graph.DrawString(cost, costFont, System.Drawing.Brushes.Black, cl);
-                }
-
-                // BADGES
-                foreach (var badge in this.PlacedBadges)
-                {
-                    var destRect = new RectangleF(badge.X - BadgeWidth / 2, badge.Y - BadgeHeight / 2, BadgeWidth, BadgeHeight);
-                    var srcRect = new RectangleF(0, 0, badge.Image.Width, badge.Image.Height);
-                    graph.DrawImage(badge.Image, destRect, srcRect, GraphicsUnit.Pixel);
-
-                    if (!string.IsNullOrEmpty(badge.Text))
-                    {
-                        var badgeFont = new Font("Sitka Text", 24, System.Drawing.FontStyle.Bold);
-                        var badgeSize = graph.MeasureString(badge.Text, badgeFont);
-                        var badgeLocation = new System.Drawing.Point(
-                            (int)(badge.X),
-                            (int)(badge.Y - (BadgeHeight - badgeSize.Height) / 2));
-                        graph.DrawString(badge.Text, badgeFont, System.Drawing.Brushes.Black, badgeLocation, centeredText);
-
-                    }
-                }
-
-                // Update the preview
-                return GetImageStream(dest);
+                var image = System.Drawing.Image.FromFile(tbImageLocation.Text);
+                var destRect = new RectangleF(93, 163, 642, 415);
+                var srcRect = new RectangleF(0, 0, image.Width, image.Height);
+                graph.DrawImage(image, destRect, srcRect, GraphicsUnit.Pixel);
             }
+
+            // TEMPLATE
+            {
+                var template = System.Drawing.Image.FromFile(templateLocation);
+                graph.DrawImage(template, 0, 0, CardWidth, CardHeight);
+            }
+
+            // TITLE
+            {
+                const int titleYLocation = 120;
+                //var titleFont = new Font("Sitka Text", 24, System.Drawing.FontStyle.Bold);
+                var ff = Utility.FontFamilies();
+                var n = ff[0].Name;
+                if (ff[0].IsStyleAvailable(System.Drawing.FontStyle.Bold))
+                {
+                    n += " Bold";
+                }
+                var titleFont = new Font(n /*OptimusPrinceps*/, 24);//, System.Drawing.FontStyle.Bold);
+                var titleSize = graph.MeasureString(title, titleFont);
+                var titleLocation = new System.Drawing.Point(
+                    (int)(CardWidth - titleSize.Width) / 2,
+                    (int)(titleYLocation - titleSize.Height / 2));
+                graph.DrawString(title, titleFont, System.Drawing.Brushes.Black, titleLocation);
+            }
+
+            // CARD TYPE
+            {
+                const int cardTypeYLocation = 988;
+                const int cardTypeAvailableWidth = 540;
+                const int cardTypeXOffset = 190;
+                var cardTypeFont = new Font("Sitka Text", 18, System.Drawing.FontStyle.Bold);
+                var cardTypeSize = graph.MeasureString(cardType, cardTypeFont, cardTypeAvailableWidth);
+                var cardTypeLocation = new System.Drawing.Point(
+                    (int)(cardTypeAvailableWidth - cardTypeSize.Width) / 2 + cardTypeXOffset,
+                    (int)(cardTypeYLocation - cardTypeSize.Height / 2));
+                graph.DrawString(cardType, cardTypeFont, System.Drawing.Brushes.Black, cardTypeLocation);
+            }
+
+            // DESCRIPTION
+            {
+                const int descriptionYLocation = 775;
+                const int descriptionAvailableWidth = 630;
+                const int descriptionAvailableHeight = 345;
+                var descriptionFont = new Font("Arial", 16);
+                var descriptionSize = graph.MeasureString(description, descriptionFont, descriptionAvailableWidth, centeredText);
+
+                var descriptionRect = new RectangleF(
+                    (CardWidth - descriptionAvailableWidth) / 2,
+                    descriptionYLocation - (descriptionAvailableHeight / 2),
+                    descriptionAvailableWidth,
+                    descriptionAvailableHeight
+                    );
+
+                graph.DrawString(
+                    description,
+                    descriptionFont,
+                    System.Drawing.Brushes.Black,
+                    descriptionRect,
+                    centeredText
+                    );
+            }
+
+            // COST
+            {
+                var costLocation = new System.Drawing.Point(140, 1000);
+                var costFont = new Font("Sitka Text", 24, System.Drawing.FontStyle.Bold);
+                var costSize = graph.MeasureString(cost, costFont);
+                var cl = new System.Drawing.Point(costLocation.X - (int)costSize.Width / 2, costLocation.Y - (int)costSize.Height / 2);
+                graph.DrawString(cost, costFont, System.Drawing.Brushes.Black, cl);
+            }
+
+            // BADGES
+            foreach (var badge in this.PlacedBadges)
+            {
+                var destRect = new RectangleF(badge.X - BadgeWidth / 2, badge.Y - BadgeHeight / 2, BadgeWidth, BadgeHeight);
+                var srcRect = new RectangleF(0, 0, badge.Image.Width, badge.Image.Height);
+                graph.DrawImage(badge.Image, destRect, srcRect, GraphicsUnit.Pixel);
+
+                if (!string.IsNullOrEmpty(badge.Text))
+                {
+                    var badgeFont = new Font("Sitka Text", 24, System.Drawing.FontStyle.Bold);
+                    var badgeSize = graph.MeasureString(badge.Text, badgeFont);
+                    var badgeLocation = new System.Drawing.Point(
+                        (int)(badge.X),
+                        (int)(badge.Y - (BadgeHeight - badgeSize.Height) / 2));
+                    graph.DrawString(badge.Text, badgeFont, System.Drawing.Brushes.Black, badgeLocation, centeredText);
+
+                }
+            }
+
+            return dest;
+        }
+
+        private void addBadgeAt(int x, int y, System.Drawing.Image image, string text)
+        {
+            PlacedBadges.Add(new PlacedBadge
+            {
+                X = x,
+                Y = y,
+                Text = text,
+                Image = image
+            });
+
+            RenderCard();
+        }
+
+        #region UI Event Handlers
+        private void MenuItem_SaveCard(object sender, RoutedEventArgs e)
+        {
+            var sfd = new SaveFileDialog
+            {
+                AddExtension = true,
+                //CheckFileExists = true,
+                Filter = "JSON files (*.json)|*.json|All Files (*.*)|*.*",
+                InitialDirectory = ""
+            };
+
+            if (sfd.ShowDialog() != true)
+            {
+                return;
+            }
+
+            using (var sw = new StreamWriter(sfd.FileName))
+            {
+                int cost;
+                var cardObj = new SavedCard
+                {
+                    Title = tbCardTitle.Text,
+                    Description = tbDescription.Text,
+                    Cost = int.TryParse(tbCost.Text, out cost) ? cost : 0,
+                    Image = tbImageLocation.Text,
+                    CardType = tbCardType.Text,
+                    Badges = this.PlacedBadges.ToList()
+                };
+
+                var json = Utility.Serialize(cardObj);
+                sw.Write(json);
+            }
+        }
+
+        private void MenuItem_ExportImage(object sender, RoutedEventArgs e)
+        {
+            var sfd = new SaveFileDialog
+            {
+                AddExtension = true,
+                //CheckFileExists = true,
+                Filter = "PNG files (*.png)|*.png|All Files (*.*)|*.*",
+                InitialDirectory = ""
+            };
+
+            if (sfd.ShowDialog() != true)
+            {
+                return;
+            }
+
+            var image = RenderCardImage();
+
+            image.Save(sfd.FileName);
+        }
+        #endregion
+
+        private void MenuItem_OpenCard(object sender, RoutedEventArgs e)
+        {
+            var ofd = new OpenFileDialog
+            {
+                AddExtension = true,
+                CheckFileExists = true,
+                Filter = "JSON files (*.json)|*.json|All Files (*.*)|*.*",
+                InitialDirectory = ""
+            };
+
+            if (ofd.ShowDialog() != true || !File.Exists(ofd.FileName))
+            {
+                return;
+            }
+
+            var json = File.ReadAllText(ofd.FileName);
+
+            var cardObj = (SavedCard)Utility.Deserialize<SavedCard>(json);
+
+
+            tbCardTitle.Text = cardObj.Title;
+            tbDescription.Text = cardObj.Description;
+            tbCost.Text = cardObj.Cost.ToString();
+            tbImageLocation.Text = cardObj.Image;
+            tbCardType.Text = cardObj.CardType;
+            this.PlacedBadges.Clear();
+            foreach (var badge in cardObj.Badges)
+            {
+                this.PlacedBadges.Add(badge);
+            }
+
+            // TODO: render the new card
+        }
+
+        private void MenuItem_NewCard(object sender, RoutedEventArgs e)
+        {
+            tbCardTitle.Text = string.Empty;
+            tbDescription.Text = string.Empty;
+            tbCost.Text = string.Empty;
+            tbImageLocation.Text = string.Empty;
+            tbCardType.Text = string.Empty;
+            this.PlacedBadges.Clear();
         }
 
         private void tbCost_MouseWheel(object sender, MouseWheelEventArgs e)
@@ -247,48 +365,44 @@ If it turns up 5 or 6, +1 coin.";
 
 
             var cm = new ContextMenu();
-
-            var availableBadges = new[]
-            {
-                Tuple.Create("Coin", CoinBadge),
-                Tuple.Create("Victory Points", VPBadge)
-            };
-
-            foreach (var availableBadge in availableBadges)
+            
+            foreach (var badge in this.Badges)
             {
                 var miParent = new MenuItem
                 {
-                    Icon = new System.Windows.Controls.Image { Source = GetImageStream(availableBadge.Item2) },
-                    Header = availableBadge.Item1
+                    Icon = new System.Windows.Controls.Image { Source = Utility.GetImageStream(badge.Item2) },
+                    Header = badge.Item1
                 };
 
                 var miChild = new MenuItem { Header = "(blank)", Tag = "" };
-                miChild.Click += (s, a) => addBadgeAt(x, y, availableBadge.Item2, "");
+                miChild.Click += (s, a) => addBadgeAt(x, y, badge.Item2, "");
                 miParent.Items.Add(miChild);
 
                 for (int i = 1; i < 10; i++)
                 {
                     miChild = new MenuItem { Header = i.ToString(), Tag = i.ToString() };
-                    miChild.Click += (s, a) => addBadgeAt(x, y, availableBadge.Item2, (s as MenuItem).Tag as string);
+                    miChild.Click += (s, a) => addBadgeAt(x, y, badge.Item2, (s as MenuItem).Tag as string);
                     miParent.Items.Add(miChild);
                 }
                 cm.Items.Add(miParent);
             }
 
-            imageCardPreview.ContextMenu = cm;
-        }
-
-        private void addBadgeAt(int x, int y, System.Drawing.Image image, string text)
-        {
-            PlacedBadges.Add(new PlacedBadge
+            if (this.PlacedBadges.Count > 0)
             {
-                X = x,
-                Y = y,
-                Text = text,
-                Image = image
-            });
+                var mi = new MenuItem()
+                {
+                    Header = "Clear all Badges"
+                };
+                mi.Click += (s, a) =>
+                {
+                    this.PlacedBadges.Clear();
+                    RenderCard();
+                };
 
-            comboCardType_SelectionChanged(null, null);
+                cm.Items.Add(mi);
+            }
+
+            imageCardPreview.ContextMenu = cm;
         }
     }
 }
