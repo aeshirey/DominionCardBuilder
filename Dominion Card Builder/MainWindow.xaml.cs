@@ -32,10 +32,7 @@ namespace Dominion_Card_Builder
         private const int CardHeight = 1125;
 
         private readonly IList<PlacedBadge> PlacedBadges = new List<PlacedBadge>();
-        //private readonly Font OptimusPrinceps = Utility.FontFamilies[0];
-        
-        //private readonly PrivateFontCollection PrivateFonts = new PrivateFontCollection();
-
+        private readonly IDictionary<string, string> DownloadedImages = new Dictionary<string, string>();
         private readonly Tuple<string, System.Drawing.Image>[] Badges;
 
         public MainWindow()
@@ -48,7 +45,7 @@ namespace Dominion_Card_Builder
                 {
                     comboTemplate.Items.Add(new ComboBoxItem
                     {
-                        Content = file.Name.Substring(0, file.Extension.Length - 1),
+                        Content = file.Name.Substring(0, file.Name.Length - file.Extension.Length),
                         Tag = file.FullName
                     });
                 });
@@ -60,7 +57,7 @@ namespace Dominion_Card_Builder
                     System.Drawing.Image.FromFile(fi.FullName)
                     ))
                 .ToArray();
-            
+
             // temporarily make testing easier:
             tbDescription.Text = @"Roll a die.
 
@@ -113,7 +110,21 @@ If it turns up 5 or 6, +1 coin.";
 
             // IMAGE
             {
-                var image = System.Drawing.Image.FromFile(tbImageLocation.Text);
+                System.Drawing.Image image;
+                if (File.Exists(tbImageLocation.Text))
+                {
+                    image = System.Drawing.Image.FromFile(tbImageLocation.Text);
+                }
+                else if (DownloadedImages.ContainsKey(tbImageLocation.Text))
+                {
+                    image = System.Drawing.Image.FromFile(DownloadedImages[tbImageLocation.Text]);
+                }
+                else
+                {
+                    // TODO - image doesn't exist.
+                    throw new ApplicationException("Couldn't load image from specified location.");
+                }
+
                 var destRect = new RectangleF(93, 163, 642, 415);
                 var srcRect = new RectangleF(0, 0, image.Width, image.Height);
                 graph.DrawImage(image, destRect, srcRect, GraphicsUnit.Pixel);
@@ -298,6 +309,18 @@ If it turns up 5 or 6, +1 coin.";
 
             var cardObj = (SavedCard)Utility.Deserialize<SavedCard>(json);
 
+            // if the Image is a URL, let's download it now
+            try
+            {
+                var uri = new Uri(cardObj.Image);
+                var local = Utility.DownloadFile(cardObj.Image);
+                DownloadedImages[cardObj.Image] = local;
+            }
+            catch (UriFormatException)
+            {
+
+            }
+
 
             tbCardTitle.Text = cardObj.Title;
             tbDescription.Text = cardObj.Description;
@@ -365,7 +388,7 @@ If it turns up 5 or 6, +1 coin.";
 
 
             var cm = new ContextMenu();
-            
+
             foreach (var badge in this.Badges)
             {
                 var miParent = new MenuItem
@@ -403,6 +426,43 @@ If it turns up 5 or 6, +1 coin.";
             }
 
             imageCardPreview.ContextMenu = cm;
+        }
+
+        private void tbImageLocation_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+        {
+            // check if this points to a URL that should be downloaded, a local file that exists, or something else (an error)
+
+            if (File.Exists(tbImageLocation.Text))
+            {
+                // okay, cool.
+                tbImageLocation.Background = System.Windows.Media.Brushes.LightGreen;
+                return;
+            }
+
+            // did we already download this remote path?
+            if (DownloadedImages.ContainsKey(tbImageLocation.Text))
+            {
+                // also cool
+                tbImageLocation.Background = System.Windows.Media.Brushes.LightGreen;
+                return;
+            }
+
+            Uri uri;
+            try
+            {
+                uri = new Uri(tbImageLocation.Text);
+            }
+            catch (UriFormatException)
+            {
+                // not cool
+                tbImageLocation.Background = System.Windows.Media.Brushes.LightPink;
+                return;
+            }
+
+            var local = Utility.DownloadFile(tbImageLocation.Text);
+
+            DownloadedImages[tbImageLocation.Text] = local;
+            tbImageLocation.Background = System.Windows.Media.Brushes.LightGreen;
         }
     }
 }

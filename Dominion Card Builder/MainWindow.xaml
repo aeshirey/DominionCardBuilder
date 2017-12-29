@@ -42,7 +42,7 @@
             <Label x:Name="labelCost" Content="Cost:" HorizontalAlignment="Left" Margin="6,90,0,0" RenderTransformOrigin="0.061,0.775" Width="72" Height="26" VerticalAlignment="Top"/>
             <TextBox x:Name="tbCost" Margin="84,94,10,0" TextWrapping="Wrap" Text="3" Height="23" VerticalAlignment="Top" MaxLength="2" MouseWheel="tbCost_MouseWheel"/>
             <Label x:Name="labelImage" Content="Image:" HorizontalAlignment="Left" Margin="6,121,0,0" RenderTransformOrigin="0.061,0.775" Width="72" Height="26" VerticalAlignment="Top"/>
-            <TextBox x:Name="tbImageLocation" Margin="82,122,40,0" Height="24" VerticalAlignment="Top" IsReadOnly="True"/>
+            <TextBox x:Name="tbImageLocation" Margin="82,122,40,0" Height="24" VerticalAlignment="Top" LostKeyboardFocus="tbImageLocation_LostKeyboardFocus"/>
             <Button x:Name="btnBrowseImage" Content="..." Margin="0,126,11,0" Click="btnBrowseImage_Click" Height="20" VerticalAlignment="Top" HorizontalAlignment="Right" Width="24"/>
             <Label x:Name="labelDescription" Content="Description:" HorizontalAlignment="Left" Margin="6,152,0,0" RenderTransformOrigin="0.061,0.775" Width="72" Height="26" VerticalAlignment="Top"/>
             <TextBox x:Name="tbDescription" Margin="84,151,10,0" TextWrapping="Wrap" Height="56" VerticalAlignment="Top" AcceptsReturn="True"/>

@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Drawing.Text;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -112,6 +113,18 @@ namespace Dominion_Card_Builder
             DeleteObject(bmpPt);
 
             return bitmapSource;
+        }
+
+        public static string DownloadFile(string url)
+        {
+            string tempFile = Path.GetTempFileName();
+
+            using (var wc = new WebClient())
+            {
+                wc.DownloadFile(url, tempFile);
+            }
+
+            return tempFile;
         }
     }
 }
