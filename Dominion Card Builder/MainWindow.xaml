@@ -11,6 +11,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="20"/>
             <RowDefinition/>
+            <RowDefinition Height="35"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition/>
@@ -18,14 +19,15 @@
         <DockPanel>
             <Menu DockPanel.Dock="Top">
                 <MenuItem Header="_File">
-                    <MenuItem Header="_New" Click="MenuItem_NewCard"/>
-                    <MenuItem Header="_Open" Click="MenuItem_OpenCard"/>
-                    <MenuItem Header="_Save" Click="MenuItem_SaveCard"/>
+                    <MenuItem Header="_New Deck" Click="MenuItem_NewDeck"/>
+                    <MenuItem Header="_Open Deck" Click="MenuItem_OpenDeck"/>
+                    <MenuItem Header="_Save Deck" Click="MenuItem_SaveDeck"/>
                     <MenuItem Header="_Export Image" Click="MenuItem_ExportImage"/>
+                    <MenuItem Header="_Add Card to Deck" Click="MenuItem_AddCardToDeck"/>
                 </MenuItem>
             </Menu>
         </DockPanel>
-        <Grid Grid.Row="2">
+        <Grid Grid.Row="1">
             <Grid.RowDefinitions>
                 <RowDefinition Height="287*"/>
             </Grid.RowDefinitions>
@@ -33,22 +35,38 @@
                 <ColumnDefinition Width="291"/>
                 <ColumnDefinition/>
             </Grid.ColumnDefinitions>
-            <ComboBox x:Name="comboTemplate" Margin="83,7,11,0" SelectionChanged="comboCardType_SelectionChanged" Height="26" VerticalAlignment="Top">
-             </ComboBox>
-            <Image x:Name="imageCardPreview" Margin="9,0,10.5,28.5" MouseRightButtonUp="imageCardPreview_MouseRightButtonUp" Grid.Column="1"/>
+            <ComboBox x:Name="comboTemplate" Margin="83,7,11,0" SelectionChanged="comboTemplate_SelectionChanged" Height="26" VerticalAlignment="Top">
+            </ComboBox>
+            <Image x:Name="imageCardPreview" Margin="9,0,10.5,47.5" MouseRightButtonUp="imageCardPreview_MouseRightButtonUp" Grid.Column="1"/>
             <Label x:Name="labelTemplate" Content="Template:" HorizontalAlignment="Left" Margin="6,8,0,0" RenderTransformOrigin="0.061,0.775" Width="72" Height="26" VerticalAlignment="Top"/>
             <Label x:Name="labelTitle" Content="Title:" HorizontalAlignment="Left" Margin="6,63,0,0" RenderTransformOrigin="0.061,0.775" Width="72" Height="26" VerticalAlignment="Top"/>
-            <TextBox x:Name="tbCardTitle" Margin="83,66,11,0" TextWrapping="Wrap" Text="(card title)" Height="23" VerticalAlignment="Top"/>
+            <TextBox x:Name="tbCardTitle" Margin="83,66,11,0" TextWrapping="Wrap" Text="(card title)" Height="23" VerticalAlignment="Top" LostKeyboardFocus="tbCardType_LostKeyboardFocus"/>
             <Label x:Name="labelCost" Content="Cost:" HorizontalAlignment="Left" Margin="6,90,0,0" RenderTransformOrigin="0.061,0.775" Width="72" Height="26" VerticalAlignment="Top"/>
-            <TextBox x:Name="tbCost" Margin="84,94,10,0" TextWrapping="Wrap" Text="3" Height="23" VerticalAlignment="Top" MaxLength="2" MouseWheel="tbCost_MouseWheel"/>
+            <TextBox x:Name="tbCost" Margin="84,94,10,0" TextWrapping="Wrap" Text="3" Height="23" VerticalAlignment="Top" MaxLength="2" MouseWheel="tbCost_MouseWheel" LostKeyboardFocus="tbCardType_LostKeyboardFocus"/>
             <Label x:Name="labelImage" Content="Image:" HorizontalAlignment="Left" Margin="6,121,0,0" RenderTransformOrigin="0.061,0.775" Width="72" Height="26" VerticalAlignment="Top"/>
             <TextBox x:Name="tbImageLocation" Margin="82,122,40,0" Height="24" VerticalAlignment="Top" LostKeyboardFocus="tbImageLocation_LostKeyboardFocus"/>
             <Button x:Name="btnBrowseImage" Content="..." Margin="0,126,11,0" Click="btnBrowseImage_Click" Height="20" VerticalAlignment="Top" HorizontalAlignment="Right" Width="24"/>
             <Label x:Name="labelDescription" Content="Description:" HorizontalAlignment="Left" Margin="6,152,0,0" RenderTransformOrigin="0.061,0.775" Width="72" Height="26" VerticalAlignment="Top"/>
-            <TextBox x:Name="tbDescription" Margin="84,151,10,0" TextWrapping="Wrap" Height="56" VerticalAlignment="Top" AcceptsReturn="True"/>
+            <TextBox x:Name="tbDescription" Margin="82,151,10,0" TextWrapping="Wrap" Height="56" VerticalAlignment="Top" AcceptsReturn="True" LostKeyboardFocus="tbCardType_LostKeyboardFocus"/>
             <Label x:Name="labelCardType" Content="Card Type:" HorizontalAlignment="Left" Margin="6,34,0,0" RenderTransformOrigin="0.061,0.775" Width="72" Height="26" VerticalAlignment="Top"/>
-            <TextBox x:Name="tbCardType" Margin="83,38,11,0" TextWrapping="Wrap" Text="Action" Height="23" VerticalAlignment="Top"/>
-
+            <TextBox x:Name="tbCardType" Margin="83,38,11,0" TextWrapping="Wrap" Text="Action" Height="23" VerticalAlignment="Top" LostKeyboardFocus="tbCardType_LostKeyboardFocus"/>
+        </Grid>
+        <Grid Grid.Row="2">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="30*"/>
+                    <ColumnDefinition Width="40*"/>
+                    <ColumnDefinition Width="30*"/>
+                </Grid.ColumnDefinitions>
+                <Grid Grid.Column="1">
+                    <Button x:Name="btnPreviousCard" Content="3" FontFamily="Marlett" Margin="10,6,0,6" HorizontalAlignment="Left" Width="41" Click="btnPreviousCard_Click" />
+                    <Button x:Name="btnNextCard" Content="4" FontFamily="Marlett" Margin="0,6,10,6" HorizontalAlignment="Right" Width="38" Click="btnNextCard_Click"/>
+                    <Label x:Name="labelCurrentOutOfNCards" Content="Card 1/2" Margin="56,6,53,6" HorizontalContentAlignment="Center"/>
+                </Grid>
+            </Grid>
 
 
         </Grid>

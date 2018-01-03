@@ -9,6 +9,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media.Imaging;
 
 namespace Dominion_Card_Builder
@@ -83,6 +84,18 @@ namespace Dominion_Card_Builder
             }
         }
 
+        /// <summary>
+        /// LINQ-like method to perform an action on each element of an IEnumerable
+        /// </summary>
+        public static void ForEach<T>(this IEnumerable<T> inputs, Action<T, int> action)
+        {
+            int i = 1;
+            foreach (var input in inputs)
+            {
+                action(input, i++);
+            }
+        }
+
         public static IEnumerable<FileInfo> LoadFiles(string folder, string pattern = "*")
         {
             if (!Directory.Exists(folder))
@@ -97,7 +110,7 @@ namespace Dominion_Card_Builder
         /// <summary>
         /// Convert an Image to a BitmapSource for use in an Image control
         /// </summary>
-        public static BitmapSource GetImageStream(Image image)
+        public static BitmapSource GetImageStream(System.Drawing.Image image)
         {
             var bitmap = new Bitmap(image);
             IntPtr bmpPt = bitmap.GetHbitmap();
@@ -125,6 +138,14 @@ namespace Dominion_Card_Builder
             }
 
             return tempFile;
+        }
+
+        public static IEnumerable<ListBoxItem> ListItems(this ItemsControl control)
+        {
+            for (int i = 0; i < control.Items.Count; i++)
+            {
+                yield return (ListBoxItem)control.Items[i];
+            }
         }
     }
 }

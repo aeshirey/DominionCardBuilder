@@ -31,24 +31,90 @@ namespace Dominion_Card_Builder
         private const int CardWidth = 825;
         private const int CardHeight = 1125;
 
-        private readonly IList<PlacedBadge> PlacedBadges = new List<PlacedBadge>();
+        /// <summary>
+        /// Maps the URL of an image to a temporary local file
+        /// </summary>
         private readonly IDictionary<string, string> DownloadedImages = new Dictionary<string, string>();
+
+        /// <summary>
+        /// Badges (eg, Coin, Victory Point) loaded from disk as "Resources/{badge-name}.png"
+        /// </summary>
         private readonly Tuple<string, System.Drawing.Image>[] Badges;
+
+        private readonly IList<Tuple<FileInfo, string>> Templates;
+
+        private Deck Deck;
+
+        private int _CurrentCardIndex;
+        private int CurrentCardIndex
+        {
+            get
+            {
+                return _CurrentCardIndex;
+            }
+            set
+            {
+                this._CurrentCardIndex = value;
+                labelCurrentOutOfNCards.Content = $"Card {1 + value}/{this.Deck.Cards.Count}";
+
+                btnPreviousCard.IsEnabled = value > 0;
+                btnNextCard.IsEnabled = value < this.Deck.Cards.Count - 1;
+
+                // Update the UI elements
+                comboTemplate.ListItems()
+                    .ForEach(item =>
+                    {
+                        if ((string)item.Content == CurrentCard.TemplateName)
+                        {
+                            item.IsSelected = true;
+                        }
+                    });
+
+                tbCardType.Text = CurrentCard.CardType;
+                tbCardTitle.Text = CurrentCard.Title;
+                tbCost.Text = CurrentCard.Cost.ToString();
+                tbImageLocation.Text = CurrentCard.Image;
+                tbDescription.Text = CurrentCard.Description;
+
+                RenderCard();
+            }
+        }
+
+        private Card CurrentCard
+        {
+            get
+            {
+                return this.Deck.Cards[_CurrentCardIndex];
+            }
+        }
 
         public MainWindow()
         {
             InitializeComponent();
 
             // Load card templates
-            Utility.LoadFiles("Templates", "*.png")
-                .ForEach(file =>
+            this.Templates = Utility.LoadFiles("Templates", "*.png")
+                .Select((file, i) =>
                 {
-                    comboTemplate.Items.Add(new ComboBoxItem
-                    {
-                        Content = file.Name.Substring(0, file.Name.Length - file.Extension.Length),
-                        Tag = file.FullName
-                    });
+                    // extract "action" out of "action.png"
+                    var templateName = file.Name.Substring(0, file.Name.Length - file.Extension.Length);
+                    return Tuple.Create(file, templateName);
+                })
+                .ToList();
+
+            // initialize this new deck
+            CreateNewDeck(isInit: true);
+
+            this.Templates.ForEach((file, i) =>
+            {
+                comboTemplate.Items.Add(new ComboBoxItem
+                {
+                    Content = file.Item2,
+                    Tag = file.Item1.FullName,
+                    IsSelected = i == 1
                 });
+            });
+
 
             // Load all badges
             this.Badges = Utility.LoadFiles("Resources", "*Badge.png")
@@ -58,13 +124,17 @@ namespace Dominion_Card_Builder
                     ))
                 .ToArray();
 
-            // temporarily make testing easier:
-            tbDescription.Text = @"Roll a die.
+            // set some defaults
+            tbCardType.Text = "Action";
 
-If it turns up 5 or 6, +1 coin.";
-            tbImageLocation.Text = @"C:\Users\adams\Desktop\goons.png";
-            comboTemplate.SelectedIndex = 0;
-            RenderCard();
+
+            //            // temporarily make testing easier:
+            //            tbDescription.Text = @"Roll a die.
+
+            //If it turns up 5 or 6, +1 coin.";
+            //            tbImageLocation.Text = @"C:\Users\adams\Desktop\goons.png";
+            //            comboTemplate.SelectedIndex = 0;
+            //            RenderCard();
 
 
             //PrivateFonts.AddFontFile(@"Resources\OptimusPrincepsSemiBold.ttf");
@@ -78,24 +148,56 @@ If it turns up 5 or 6, +1 coin.";
             //    .ToList();
         }
 
-        private void comboCardType_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void CreateNewDeck(bool isInit = false)
         {
-            RenderCard();
+            this.Deck = new Deck
+            {
+                Cards = new List<Card>()
+                {
+                    DefaultCard()
+                }
+            };
+
+            if (!isInit)
+            {
+                this.CurrentCardIndex = 0;
+            }
         }
 
+        [Obsolete("Use RenderCard(SavedCard) instead")]
         private void RenderCard()
         {
             var dest = RenderCardImage();
             imageCardPreview.Source = Utility.GetImageStream(dest);
         }
 
+        private void RenderCard(Card card)
+        {
+            var dest = RenderCardImage(card);
+            imageCardPreview.Source = Utility.GetImageStream(dest);
+        }
+
         private System.Drawing.Image RenderCardImage()
         {
-            var templateLocation = (string)(comboTemplate.SelectedItem as ComboBoxItem).Tag;
-            var title = tbCardTitle.Text;
-            var description = tbDescription.Text;
-            var cost = tbCost.Text;
-            var cardType = tbCardType.Text;
+            return RenderCardImage(CurrentCard);
+        }
+
+        private System.Drawing.Image RenderCardImage(Card card)
+        {
+            //var templateLocation = (string)(comboTemplate.SelectedItem as ComboBoxItem).Tag;
+            //var title = tbCardTitle.Text;
+            //var description = tbDescription.Text;
+            //var cost = tbCost.Text;
+            //var cardType = tbCardType.Text;
+
+
+            //var templateLocation = (string)(comboTemplate.SelectedItem as ComboBoxItem).Tag;
+            var template = card.TemplateName;
+            var title = card.Title;
+            var description = card.Description;
+            var cost = card.Cost.ToString();
+            var cardType = card.CardType;
+
 
             var centeredText = new StringFormat
             {
@@ -122,18 +224,23 @@ If it turns up 5 or 6, +1 coin.";
                 else
                 {
                     // TODO - image doesn't exist.
-                    throw new ApplicationException("Couldn't load image from specified location.");
+                    image = null;
+                    //throw new ApplicationException("Couldn't load image from specified location.");
                 }
 
-                var destRect = new RectangleF(93, 163, 642, 415);
-                var srcRect = new RectangleF(0, 0, image.Width, image.Height);
-                graph.DrawImage(image, destRect, srcRect, GraphicsUnit.Pixel);
+                if (image != null)
+                {
+                    //switch (image)
+                    var destRect = new RectangleF(93, 163, 642, 415);
+                    var srcRect = new RectangleF(0, 0, image.Width, image.Height);
+                    graph.DrawImage(image, destRect, srcRect, GraphicsUnit.Pixel);
+                }
             }
 
             // TEMPLATE
             {
-                var template = System.Drawing.Image.FromFile(templateLocation);
-                graph.DrawImage(template, 0, 0, CardWidth, CardHeight);
+                var templateImg = System.Drawing.Image.FromFile($"Templates/{template}.png");
+                graph.DrawImage(templateImg, 0, 0, CardWidth, CardHeight);
             }
 
             // TITLE
@@ -201,7 +308,7 @@ If it turns up 5 or 6, +1 coin.";
             }
 
             // BADGES
-            foreach (var badge in this.PlacedBadges)
+            foreach (var badge in card.Badges)
             {
                 var destRect = new RectangleF(badge.X - BadgeWidth / 2, badge.Y - BadgeHeight / 2, BadgeWidth, BadgeHeight);
                 var srcRect = new RectangleF(0, 0, badge.Image.Width, badge.Image.Height);
@@ -224,19 +331,33 @@ If it turns up 5 or 6, +1 coin.";
 
         private void addBadgeAt(int x, int y, System.Drawing.Image image, string text)
         {
-            PlacedBadges.Add(new PlacedBadge
+            this.CurrentCard.Badges.Add(new PlacedBadge
+            //PlacedBadges.Add(new PlacedBadge
             {
                 X = x,
                 Y = y,
                 Text = text,
                 Image = image
             });
-
             RenderCard();
         }
 
+        private Card DefaultCard()
+        {
+            return new Card
+            {
+                Title = "",
+                Cost = 3,
+                TemplateName = this.Templates.First().Item2,
+                Description = "+ 3 cards",
+                CardType = "Action",
+                Badges = new List<PlacedBadge>()
+            };
+        }
+
+
         #region UI Event Handlers
-        private void MenuItem_SaveCard(object sender, RoutedEventArgs e)
+        private void MenuItem_SaveDeck(object sender, RoutedEventArgs e)
         {
             var sfd = new SaveFileDialog
             {
@@ -253,18 +374,18 @@ If it turns up 5 or 6, +1 coin.";
 
             using (var sw = new StreamWriter(sfd.FileName))
             {
-                int cost;
-                var cardObj = new SavedCard
-                {
-                    Title = tbCardTitle.Text,
-                    Description = tbDescription.Text,
-                    Cost = int.TryParse(tbCost.Text, out cost) ? cost : 0,
-                    Image = tbImageLocation.Text,
-                    CardType = tbCardType.Text,
-                    Badges = this.PlacedBadges.ToList()
-                };
+                //int cost;
+                //var cardObj = new Card
+                //{
+                //    Title = tbCardTitle.Text,
+                //    Description = tbDescription.Text,
+                //    Cost = int.TryParse(tbCost.Text, out cost) ? cost : 0,
+                //    Image = tbImageLocation.Text,
+                //    CardType = tbCardType.Text,
+                //    Badges = this.PlacedBadges.ToList()
+                //};
 
-                var json = Utility.Serialize(cardObj);
+                var json = Utility.Serialize(this.Deck);
                 sw.Write(json);
             }
         }
@@ -288,9 +409,8 @@ If it turns up 5 or 6, +1 coin.";
 
             image.Save(sfd.FileName);
         }
-        #endregion
 
-        private void MenuItem_OpenCard(object sender, RoutedEventArgs e)
+        private void MenuItem_OpenDeck(object sender, RoutedEventArgs e)
         {
             var ofd = new OpenFileDialog
             {
@@ -307,43 +427,36 @@ If it turns up 5 or 6, +1 coin.";
 
             var json = File.ReadAllText(ofd.FileName);
 
-            var cardObj = (SavedCard)Utility.Deserialize<SavedCard>(json);
+            this.Deck = (Deck)Utility.Deserialize<Deck>(json);
 
-            // if the Image is a URL, let's download it now
-            try
-            {
-                var uri = new Uri(cardObj.Image);
-                var local = Utility.DownloadFile(cardObj.Image);
-                DownloadedImages[cardObj.Image] = local;
-            }
-            catch (UriFormatException)
-            {
+            Parallel.ForEach(this.Deck.Cards, new ParallelOptions { MaxDegreeOfParallelism = 5 }, card =>
+             {
+                 if (card.Image == null)
+                 {
+                     return;
+                 }
 
-            }
+                 // if the Image is a URL, let's download it now
+                 try
+                 {
+                     var uri = new Uri(card.Image);
+                     var local = Utility.DownloadFile(card.Image);
+                     DownloadedImages[card.Image] = local;
+                 }
+                 catch (UriFormatException)
+                 {
 
+                 }
+             });
 
-            tbCardTitle.Text = cardObj.Title;
-            tbDescription.Text = cardObj.Description;
-            tbCost.Text = cardObj.Cost.ToString();
-            tbImageLocation.Text = cardObj.Image;
-            tbCardType.Text = cardObj.CardType;
-            this.PlacedBadges.Clear();
-            foreach (var badge in cardObj.Badges)
-            {
-                this.PlacedBadges.Add(badge);
-            }
-
-            // TODO: render the new card
+            this.CurrentCardIndex = 0;
         }
 
-        private void MenuItem_NewCard(object sender, RoutedEventArgs e)
+        private void MenuItem_NewDeck(object sender, RoutedEventArgs e)
         {
-            tbCardTitle.Text = string.Empty;
-            tbDescription.Text = string.Empty;
-            tbCost.Text = string.Empty;
-            tbImageLocation.Text = string.Empty;
-            tbCardType.Text = string.Empty;
-            this.PlacedBadges.Clear();
+            // TODO: check whether we should save the current deck
+
+            CreateNewDeck();
         }
 
         private void tbCost_MouseWheel(object sender, MouseWheelEventArgs e)
@@ -374,6 +487,8 @@ If it turns up 5 or 6, +1 coin.";
             }
 
             tbImageLocation.Text = dlg.FileName;
+
+            tbImageLocation_LostKeyboardFocus(null, null);
         }
 
         private void imageCardPreview_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
@@ -410,7 +525,7 @@ If it turns up 5 or 6, +1 coin.";
                 cm.Items.Add(miParent);
             }
 
-            if (this.PlacedBadges.Count > 0)
+            if (CurrentCard.Badges.Count > 0)
             {
                 var mi = new MenuItem()
                 {
@@ -418,7 +533,7 @@ If it turns up 5 or 6, +1 coin.";
                 };
                 mi.Click += (s, a) =>
                 {
-                    this.PlacedBadges.Clear();
+                    this.CurrentCard.Badges.Clear();
                     RenderCard();
                 };
 
@@ -431,11 +546,13 @@ If it turns up 5 or 6, +1 coin.";
         private void tbImageLocation_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
         {
             // check if this points to a URL that should be downloaded, a local file that exists, or something else (an error)
+            this.CurrentCard.Image = tbImageLocation.Text;
 
             if (File.Exists(tbImageLocation.Text))
             {
                 // okay, cool.
                 tbImageLocation.Background = System.Windows.Media.Brushes.LightGreen;
+                RenderCard();
                 return;
             }
 
@@ -444,6 +561,7 @@ If it turns up 5 or 6, +1 coin.";
             {
                 // also cool
                 tbImageLocation.Background = System.Windows.Media.Brushes.LightGreen;
+                RenderCard();
                 return;
             }
 
@@ -454,8 +572,16 @@ If it turns up 5 or 6, +1 coin.";
             }
             catch (UriFormatException)
             {
+                tbImageLocation.Background = System.Windows.Media.Brushes.LightPink;
+                RenderCard();
+                return;
+            }
+
+            if (string.IsNullOrEmpty(uri.Host))
+            {
                 // not cool
                 tbImageLocation.Background = System.Windows.Media.Brushes.LightPink;
+                RenderCard();
                 return;
             }
 
@@ -463,6 +589,52 @@ If it turns up 5 or 6, +1 coin.";
 
             DownloadedImages[tbImageLocation.Text] = local;
             tbImageLocation.Background = System.Windows.Media.Brushes.LightGreen;
+            RenderCard();
         }
+
+        private void MenuItem_AddCardToDeck(object sender, RoutedEventArgs e)
+        {
+            var nc = DefaultCard();
+            this.Deck.Cards.Add(nc);
+            this.CurrentCardIndex = this.Deck.Cards.Count - 1;
+        }
+
+        private void btnPreviousCard_Click(object sender, RoutedEventArgs e)
+        {
+            this.CurrentCardIndex--;
+
+            //btnPreviousCard.IsEnabled = (CurrentCardIndex > 0);
+            //btnNextCard.IsEnabled = true;
+        }
+
+        private void btnNextCard_Click(object sender, RoutedEventArgs e)
+        {
+            this.CurrentCardIndex++;
+
+            //btnPreviousCard.IsEnabled = true;
+            //btnNextCard.IsEnabled = (CurrentCardIndex < Deck.Cards.Count - 1);
+        }
+
+        private void comboTemplate_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            var sc = this.Deck.Cards[this.CurrentCardIndex];
+
+            sc.TemplateName = (string)((ComboBoxItem)((ComboBox)sender).SelectedItem).Content;
+
+            RenderCard(sc);
+        }
+
+        private void tbCardType_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+        {
+            var sc = this.Deck.Cards[this.CurrentCardIndex];
+
+            sc.CardType = tbCardType.Text;
+            sc.Cost = int.Parse(tbCost.Text);
+            sc.Description = tbDescription.Text;
+            sc.Title = tbCardTitle.Text;
+
+            RenderCard(sc);
+        }
+        #endregion
     }
 }

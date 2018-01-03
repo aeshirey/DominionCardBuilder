@@ -18,7 +18,6 @@ namespace Dominion_Card_Builder
         [DataMember]
         public int Y { get; set; }
 
-
         [DataMember]
         public string Text { get; set; }
 
